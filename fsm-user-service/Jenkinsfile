@@ -1,0 +1,41 @@
+pipeline {
+    agent any
+
+    environment {
+        MODULE_NAME = 'fsm-user-service'
+        IMAGE_NAME = "${MODULE_NAME}:1.0"
+        HOST_PORT = '1314'
+        CONTAINER_PORT = '10080'
+    }
+
+    stages {
+        stage('拉取代码') {
+            steps {
+                // 拉整个仓库（包括根 pom.xml 和其它模块）
+                git url: 'https://github.com/sqin2024/fsm-platform.git', branch: 'master'
+            }
+        }
+
+        stage('构建模块') {
+            steps {
+                sh "mvn clean package -pl ${MODULE_NAME} -am -DskipTests"
+            }
+        }
+
+        stage('构建 Docker 镜像') {
+            steps {
+                sh "docker build --no-cache -t ${IMAGE_NAME} ${MODULE_NAME}"
+            }
+        }
+
+        stage('部署容器') {
+            steps {
+                sh """
+                    docker stop ${MODULE_NAME} || true
+                    docker rm ${MODULE_NAME} || true
+                    docker run -d --name ${MODULE_NAME} -p ${HOST_PORT}:${CONTAINER_PORT} ${IMAGE_NAME}
+                """
+            }
+        }
+    }
+}
